@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from './lib/supabase'
+import Login from './pages/Login'
 import Sidebar from './components/Sidebar'
 import Header from './components/Header'
 import ToastContainer from './components/Toast'
@@ -15,10 +17,28 @@ import ComingSoon from './pages/ComingSoon'
 import './index.css'
 
 export default function App() {
+  const [user, setUser] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
   const [page, setPage] = useState('dashboard')
   const [collapsed, setCollapsed] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const { toasts, toast } = useToast()
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user ?? null)
+      setAuthLoading(false)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  async function logout() {
+    await supabase.auth.signOut()
+    setUser(null)
+  }
 
   function navigate(p) { setPage(p); setSearchQuery('') }
 
@@ -41,6 +61,11 @@ export default function App() {
     }
   }
 
+  if (authLoading) return (
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',color:'#1a5c3a',fontWeight:700}}>Nirman Dhara</div>
+  )
+  if (!user) return <Login onLogin={setUser} />
+
   return (
     <div className="app-layout">
       <Sidebar
@@ -55,6 +80,7 @@ export default function App() {
           onToggleSidebar={() => setCollapsed(!collapsed)}
           currentPage={page}
           notifCount={3}
+          onLogout={logout}
         />
         <main className="main-content">
           {renderPage()}

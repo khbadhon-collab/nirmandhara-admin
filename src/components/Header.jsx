@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function Header({ onToggleSidebar, currentPage, notifCount = 0 }) {
+export default function Header({ onToggleSidebar, currentPage, notifCount = 0, onLogout }) {
   const [ddOpen, setDdOpen] = useState(false)
 
   const pageTitles = {
@@ -55,6 +55,7 @@ export default function Header({ onToggleSidebar, currentPage, notifCount = 0 })
         </div>
         <button className="btn-icon"><i className="fas fa-stream"></i></button>
       </div>
+      <button onClick={onLogout} title="Logout" style={{marginLeft:12,padding:'7px 14px',background:'#fff',border:'1px solid #ddd',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:600,color:'#c0392b'}}>Logout</button>
     </header>
   )
 }
