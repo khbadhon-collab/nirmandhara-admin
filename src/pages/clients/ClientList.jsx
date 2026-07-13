@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { clientsApi } from '../../lib/api'
+import { clientsApi, cleanForm } from '../../lib/api'
 
 const DEMO = [
   { id: 1, name: 'Dr.Mahbub', phone: '01711-000001', area: 'Tangail Sadar', category: 'Residential', status: 'Active', next_call_date: '2026-06-25', created_at: '2024-11-01' },
@@ -28,8 +28,9 @@ export default function ClientList({ onNavigate, toast }) {
     setLoading(true)
     try {
       const { data, error } = await clientsApi.getAll()
-      setClients(data?.length ? data : DEMO)
-    } catch { setClients(DEMO) }
+      if (error) toast.error('Could not load clients: ' + error.message)
+      setClients(data || [])
+    } catch { setClients([]) }
     setLoading(false)
   }
 
@@ -44,29 +45,25 @@ export default function ClientList({ onNavigate, toast }) {
 
   async function handleSave() {
     if (!form.name.trim()) { toast.error('Client name is required'); return }
-    try {
-      if (editItem) {
-        const { data } = await clientsApi.update(editItem.id, form)
-        setClients(prev => prev.map(c => c.id === editItem.id ? (data || { ...c, ...form }) : c))
-        toast.success('Client updated!')
-      } else {
-        const { data } = await clientsApi.create(form)
-        setClients(prev => [data || { id: Date.now(), ...form, created_at: new Date().toISOString() }, ...prev])
-        toast.success('Client added!')
-      }
-      setShowModal(false)
-    } catch {
-      const newItem = { id: Date.now(), ...form, created_at: new Date().toISOString() }
-      if (editItem) setClients(prev => prev.map(c => c.id === editItem.id ? { ...c, ...form } : c))
-      else setClients(prev => [newItem, ...prev])
-      toast.success(editItem ? 'Client updated!' : 'Client added!')
-      setShowModal(false)
+    const payload = cleanForm({ name: form.name, phone: form.phone, email: form.email, address: form.address, area: form.area, category: form.category, status: form.status, next_call_date: form.next_call_date, notes: form.notes })
+    if (editItem) {
+      const { data, error } = await clientsApi.update(editItem.id, payload)
+      if (error) { toast.error('Save failed: ' + error.message); return }
+      setClients(prev => prev.map(c => c.id === editItem.id ? data : c))
+      toast.success('Client updated!')
+    } else {
+      const { data, error } = await clientsApi.create(payload)
+      if (error) { toast.error('Save failed: ' + error.message); return }
+      setClients(prev => [data, ...prev])
+      toast.success('Client added!')
     }
+    setShowModal(false)
   }
 
   async function handleDelete(id) {
     if (!confirm('Delete this client?')) return
-    try { await clientsApi.delete(id) } catch {}
+    const { error } = await clientsApi.delete(id)
+    if (error) { toast.error('Delete failed: ' + error.message); return }
     setClients(prev => prev.filter(c => c.id !== id))
     toast.success('Client deleted')
   }

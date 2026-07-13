@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { clientsApi, projectsApi, designSellsApi } from '../../lib/api'
+import { clientsApi, projectsApi, designSellsApi, cleanForm } from '../../lib/api'
 import { formatCurrency, formatDate, generateInvoiceNo, downloadPDF } from '../../lib/pdf'
 import logo from '/logo.jpg'
 
@@ -26,9 +26,9 @@ export default function DesignSellList({ onNavigate, toast }) {
     async function load() {
       try {
         const [dRes, cRes] = await Promise.all([designSellsApi.getAll(), clientsApi.getAll()])
-        setList(dRes.data?.length ? dRes.data : DEMO)
+        setList(dRes.data || [])
         setClients(cRes.data || [])
-      } catch { setList(DEMO) }
+      } catch { setList([]) }
       setLoading(false)
     }
     load()
@@ -64,11 +64,12 @@ export default function DesignSellList({ onNavigate, toast }) {
     const amt = parseFloat(form.amount) || 0
     const paid = parseFloat(form.paid) || 0
     const due = amt - paid
-    const data = { invoice_no: invNo, ...form, amount: amt, paid, due }
+    const data = cleanForm({ invoice_no: invNo, ...form, amount: amt, paid, due })
     try {
-      const { data: saved } = await designSellsApi.create(data)
+      const { data: saved, error } = await designSellsApi.create(data)
+      if (error) { toast.error('Save failed: ' + error.message); setSaving(false); return }
       const newItem = {
-        id: saved?.id || Date.now(),
+        id: saved.id,
         invoice_no: invNo,
         date: form.date,
         nd_clients: clients.find(c => String(c.id) === String(form.client_id)) || { name: 'Client' },
@@ -88,7 +89,8 @@ export default function DesignSellList({ onNavigate, toast }) {
 
   async function handleDelete(id) {
     if (!confirm('Delete this invoice?')) return
-    try { await designSellsApi.delete(id) } catch {}
+    const { error } = await designSellsApi.delete(id)
+    if (error) { toast.error('Delete failed: ' + error.message); return }
     setList(prev => prev.filter(d => d.id !== id))
     toast.success('Deleted')
   }

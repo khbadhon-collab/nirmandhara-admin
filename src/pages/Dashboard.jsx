@@ -37,8 +37,7 @@ export default function Dashboard({ onNavigate }) {
         })
         setProjects(projs.slice(0, 20))
       } catch (e) {
-        // use demo data if supabase not connected
-        setStats({ projects: 54, ongoing: 29, done: 25, clients: 86, revenue: 8500000, due: 2100000 })
+        setStats({ projects: 0, ongoing: 0, done: 0, clients: 0, revenue: 0, due: 0 })
       } finally {
         setLoading(false)
       }
@@ -47,26 +46,12 @@ export default function Dashboard({ onNavigate }) {
   }, [])
 
   const pieData = [
-    { name: 'Total', value: stats.projects || 54 },
-    { name: 'Ongoing', value: stats.ongoing || 29 },
-    { name: 'Complete', value: stats.done || 25 },
+    { name: 'Total', value: stats.projects || 0 },
+    { name: 'Ongoing', value: stats.ongoing || 0 },
+    { name: 'Complete', value: stats.done || 0 },
   ]
 
-  const barData = projects.length > 0
-    ? projects.map(p => ({ name: p.project_name?.slice(0, 18), days: daysDiff(p.end_date || new Date()) }))
-    : [
-        { name: 'Comfort Hospital', days: -210 },
-        { name: 'B Mart', days: -170 },
-        { name: 'Naymur Residence', days: -80 },
-        { name: '7F Tangail Tower', days: -120 },
-        { name: 'Badshah Villa', days: -180 },
-        { name: 'Matrichaya', days: -90 },
-        { name: 'SUS Tangail', days: -200 },
-        { name: "Fatima's Residence", days: 70 },
-        { name: "Safi's Residence", days: 23 },
-        { name: "Sultana's Residence", days: 45 },
-        { name: "Akhlima's Residence", days: 88 },
-      ]
+  const barData = projects.map(p => ({ name: p.project_name?.slice(0, 18), days: daysDiff(p.end_date || new Date()) }))
 
   const quickCards = [
     { label: 'CRM', page: 'client-list', gradient: 'linear-gradient(135deg,#0277bd,#01579b)' },

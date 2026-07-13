@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { employeesApi } from '../../lib/api'
+import { employeesApi, cleanForm } from '../../lib/api'
 import { formatCurrency, formatDate } from '../../lib/pdf'
 
 const DEMO = [
@@ -22,8 +22,8 @@ export default function EmployeeList({ toast }) {
     async function load() {
       try {
         const { data } = await employeesApi.getAll()
-        setEmployees(data?.length ? data : DEMO)
-      } catch { setEmployees(DEMO) }
+        setEmployees(data || [])
+      } catch { setEmployees([]) }
       setLoading(false)
     }
     load()
@@ -37,27 +37,25 @@ export default function EmployeeList({ toast }) {
 
   async function handleSave() {
     if (!form.name.trim()) { toast.error('Name required'); return }
-    try {
-      if (editItem) {
-        await employeesApi.update(editItem.id, form)
-        setEmployees(prev => prev.map(e => e.id === editItem.id ? { ...e, ...form } : e))
-        toast.success('Employee updated!')
-      } else {
-        const { data } = await employeesApi.create(form)
-        setEmployees(prev => [data || { id: Date.now(), ...form, created_at: new Date().toISOString() }, ...prev])
-        toast.success('Employee added!')
-      }
-    } catch {
-      if (editItem) setEmployees(prev => prev.map(e => e.id === editItem.id ? { ...e, ...form } : e))
-      else setEmployees(prev => [{ id: Date.now(), ...form }, ...prev])
-      toast.success(editItem ? 'Employee updated!' : 'Employee added!')
+    const payload = cleanForm({ ...form, salary: parseFloat(form.salary) || 0 })
+    if (editItem) {
+      const { error } = await employeesApi.update(editItem.id, payload)
+      if (error) { toast.error('Save failed: ' + error.message); return }
+      setEmployees(prev => prev.map(e => e.id === editItem.id ? { ...e, ...payload } : e))
+      toast.success('Employee updated!')
+    } else {
+      const { data, error } = await employeesApi.create(payload)
+      if (error) { toast.error('Save failed: ' + error.message); return }
+      setEmployees(prev => [data, ...prev])
+      toast.success('Employee added!')
     }
     setShowModal(false)
   }
 
   async function handleDelete(id) {
     if (!confirm('Delete this employee?')) return
-    try { await employeesApi.delete(id) } catch {}
+    const { error } = await employeesApi.delete(id)
+    if (error) { toast.error('Delete failed: ' + error.message); return }
     setEmployees(prev => prev.filter(e => e.id !== id))
     toast.success('Deleted')
   }

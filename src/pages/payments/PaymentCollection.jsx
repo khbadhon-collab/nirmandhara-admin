@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { clientsApi, projectsApi, paymentsApi, paymentMethodsApi, quotationsApi } from '../../lib/api'
+import { clientsApi, projectsApi, paymentsApi, paymentMethodsApi, quotationsApi, cleanForm } from '../../lib/api'
 import { formatCurrency, formatDate, generateInvoiceNo, downloadPDF } from '../../lib/pdf'
 import logo from '/logo.jpg'
 
@@ -29,10 +29,10 @@ export default function PaymentCollection({ onNavigate, toast }) {
     async function load() {
       try {
         const [pRes, cRes, mRes] = await Promise.all([paymentsApi.getAll(), clientsApi.getAll(), paymentMethodsApi.getAll()])
-        setPayments(pRes.data?.length ? pRes.data : DEMO_PAYMENTS)
+        setPayments(pRes.data || [])
         setClients(cRes.data || [])
         if (mRes.data?.length) setMethods(mRes.data)
-      } catch { setPayments(DEMO_PAYMENTS) }
+      } catch { setPayments([]) }
       setLoading(false)
     }
     load()
@@ -57,11 +57,12 @@ export default function PaymentCollection({ onNavigate, toast }) {
     if (!form.amount || parseFloat(form.amount) <= 0) { toast.error('Enter valid amount'); return }
     setSaving(true)
     const rNo = generateInvoiceNo('RCP')
-    const data = { receipt_no: rNo, ...form, amount: parseFloat(form.amount) }
+    const data = cleanForm({ receipt_no: rNo, ...form, amount: parseFloat(form.amount) })
     try {
-      const { data: saved } = await paymentsApi.create(data)
+      const { data: saved, error } = await paymentsApi.create(data)
+      if (error) { toast.error('Save failed: ' + error.message); setSaving(false); return }
       const newItem = {
-        id: saved?.id || Date.now(),
+        id: saved.id,
         receipt_no: rNo,
         date: form.date,
         nd_clients: clients.find(c => String(c.id) === String(form.client_id)) || { name: 'Client' },
@@ -77,7 +78,7 @@ export default function PaymentCollection({ onNavigate, toast }) {
       setShowForm(false)
       setForm({ date: new Date().toISOString().split('T')[0], client_id: '', project_id: '', amount: '', payment_method_id: '', note: '' })
     } catch (e) {
-      toast.error('Save failed, showing preview anyway')
+      toast.error('Save failed: ' + (e.message || 'network error'))
     }
     setSaving(false)
   }

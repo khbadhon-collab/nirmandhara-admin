@@ -180,23 +180,40 @@ export default function BOQAdd({ onNavigate, toast }) {
       terms_condition: terms,
       status: 'Draft',
     }
-    try {
-      const { data: q } = await quotationsApi.create(qData)
-      const items = rows.map((r, i) => ({ ...r, quotation_id: q.id, sort_order: i }))
-      await quotationsApi.createItems(items)
-      setSavedQuotation({ ...qData, id: q.id, quotation_no: qNo })
-      toast.success(`Quotation ${qNo} saved!`)
-    } catch {
-      setSavedQuotation({ ...qData, quotation_no: qNo, id: 'DEMO-' + Date.now() })
-      toast.success(`Quotation ${qNo} saved!`)
+    const { data: q, error: qErr } = await quotationsApi.create(qData)
+    if (qErr) { toast.error('Save failed: ' + qErr.message); setSaving(false); return }
+    // Only send columns that exist in the database table
+    const items = rows.map((r, i) => ({
+      quotation_id: q.id,
+      category_id: /^\d+$/.test(String(r.category_id)) ? r.category_id : null,
+      product_id: /^\d+$/.test(String(r.product_id)) ? r.product_id : null,
+      product_name: r.product_name,
+      description: r.description,
+      unit_price: parseFloat(r.unit_price) || 0,
+      qty: parseFloat(r.qty) || 1,
+      unit: r.unit,
+      total: parseFloat(r.total) || 0,
+      sort_order: i,
+    }))
+    const { error: iErr } = await quotationsApi.createItems(items)
+    if (iErr) {
+      await quotationsApi.delete(q.id)
+      toast.error('Save failed: ' + iErr.message)
+      setSaving(false)
+      return
     }
+    setSavedQuotation({ ...qData, id: q.id, quotation_no: qNo })
+    toast.success(`Quotation ${qNo} saved!`)
     setSaving(false)
     setViewInvoice(true)
   }
 
-  function handleNewProduct() {
+  async function handleNewProduct() {
     if (!newProd.name.trim()) { toast.error('Product name required'); return }
-    const item = { id: 'new-' + Date.now(), name: newProd.name, price: parseFloat(newProd.price) || 0, description: newProd.description }
+    const payload = { name: newProd.name, price: parseFloat(newProd.price) || 0, description: newProd.description, category_id: /^\d+$/.test(String(form.category_id)) ? form.category_id : null }
+    const { data: saved, error } = await productsApi.create(payload)
+    if (error) { toast.error('Could not save product: ' + error.message); return }
+    const item = saved
     setProducts(prev => [...prev, item])
     setForm(f => ({ ...f, product_id: item.id }))
     productsApi.create({ name: newProd.name, product_code: newProd.code, price: item.price, description: newProd.description }).catch(() => {})

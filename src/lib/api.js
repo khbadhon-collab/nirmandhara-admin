@@ -100,3 +100,10 @@ export const expenseCategoriesApi = {
   getAll: () => supabase.from('nd_expense_categories').select('*').order('name'),
   create: (data) => supabase.from('nd_expense_categories').insert(data).select().single(),
 }
+
+// Convert empty strings to null so Postgres date/number columns accept them
+export function cleanForm(obj) {
+  const out = {}
+  for (const [k, v] of Object.entries(obj)) out[k] = v === '' ? null : v
+  return out
+}

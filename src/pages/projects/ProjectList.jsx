@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { projectsApi, clientsApi } from '../../lib/api'
+import { projectsApi, clientsApi, cleanForm } from '../../lib/api'
 import { formatCurrency, formatDate } from '../../lib/pdf'
 
 const DEMO = [
@@ -33,9 +33,9 @@ export default function ProjectList({ onNavigate, toast }) {
     async function load() {
       try {
         const [pRes, cRes] = await Promise.all([projectsApi.getAll(), clientsApi.getAll()])
-        setProjects(pRes.data?.length ? pRes.data : DEMO)
+        setProjects(pRes.data || [])
         setClients(cRes.data || [])
-      } catch { setProjects(DEMO) }
+      } catch { setProjects([]) }
       setLoading(false)
     }
     load()
@@ -51,22 +51,19 @@ export default function ProjectList({ onNavigate, toast }) {
 
   async function handleSave() {
     if (!form.project_name.trim()) { toast.error('Project name required'); return }
-    try {
-      const { data } = await projectsApi.create({ ...form, total_budget: parseFloat(form.total_budget) || 0 })
-      setProjects(prev => [data || { id: Date.now(), ...form, nd_clients: clients.find(c => c.id == form.client_id), created_at: new Date().toISOString() }, ...prev])
-      toast.success('Project created!')
-      setShowModal(false)
-      setForm({ project_name: '', client_id: '', address: '', start_date: '', end_date: '', total_budget: '', status: 'Ongoing', notes: '' })
-    } catch {
-      setProjects(prev => [{ id: Date.now(), ...form, nd_clients: clients.find(c => c.id == form.client_id) || { name: 'Client' }, created_at: new Date().toISOString() }, ...prev])
-      toast.success('Project created!')
-      setShowModal(false)
-    }
+    const payload = cleanForm({ ...form, total_budget: parseFloat(form.total_budget) || 0 })
+    const { data, error } = await projectsApi.create(payload)
+    if (error) { toast.error('Save failed: ' + error.message); return }
+    setProjects(prev => [{ ...data, nd_clients: clients.find(c => String(c.id) === String(form.client_id)) }, ...prev])
+    toast.success('Project created!')
+    setShowModal(false)
+    setForm({ project_name: '', client_id: '', address: '', start_date: '', end_date: '', total_budget: '', status: 'Ongoing', notes: '' })
   }
 
   async function handleDelete(id) {
     if (!confirm('Delete this project?')) return
-    try { await projectsApi.delete(id) } catch {}
+    const { error } = await projectsApi.delete(id)
+    if (error) { toast.error('Delete failed: ' + error.message); return }
     setProjects(prev => prev.filter(p => p.id !== id))
     toast.success('Project deleted')
   }

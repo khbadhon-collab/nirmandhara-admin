@@ -34,8 +34,8 @@ export default function BOQList({ onNavigate, toast }) {
     async function load() {
       try {
         const { data } = await quotationsApi.getAll()
-        setList(data?.length ? data : DEMO)
-      } catch { setList(DEMO) }
+        setList(data || [])
+      } catch { setList([]) }
       setLoading(false)
     }
     load()
@@ -50,14 +50,16 @@ export default function BOQList({ onNavigate, toast }) {
   async function handleView(q) {
     try {
       const { data } = await quotationsApi.getItems(q.id)
-      setViewItems(data?.length ? data : DEMO_ITEMS)
-    } catch { setViewItems(DEMO_ITEMS) }
+      setViewItems(data || [])
+    } catch { setViewItems([]) }
     setViewItem(q)
   }
 
   async function handleDelete(id) {
     if (!confirm('Delete this quotation?')) return
-    try { await quotationsApi.delete(id) } catch {}
+    await quotationsApi.deleteItems(id)
+    const { error } = await quotationsApi.delete(id)
+    if (error) { toast.error('Delete failed: ' + error.message); return }
     setList(prev => prev.filter(q => q.id !== id))
     toast.success('Quotation deleted')
   }
