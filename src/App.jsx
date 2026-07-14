@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
 import Login from './pages/Login'
+import GenericCrud from './pages/GenericCrud'
+import ClientViews from './pages/clients/ClientViews'
+import { PAGE_CONFIGS, PAGE_ALIASES } from './pages/pageConfigs'
+import FinanceReport from './pages/FinanceReport'
 import Sidebar from './components/Sidebar'
 import Header from './components/Header'
 import ToastContainer from './components/Toast'
@@ -57,7 +61,34 @@ export default function App() {
       case 'design-sell-list':
       case 'design-sell-add': return <DesignSellList {...props} />
       case 'employee-list': return <EmployeeList {...props} />
-      default: return <ComingSoon title={page.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} {...props} />
+      case 'today-call':
+      case 'overdue-call':
+      case 'upcoming-call':
+      case 'visit-date':
+      case 'client-status':
+      case 'client-category':
+      case 'area':
+      case 'sqft':
+      case 'reference':
+        return <ClientViews view={page} {...props} />
+      case 'report-profit':
+      case 'cashbook':
+        return <FinanceReport {...props} />
+      default: {
+        const key = PAGE_ALIASES[page] || page
+        // aliases may point back to core pages
+        switch (key) {
+          case 'project-list': return <ProjectList {...props} />
+          case 'design-sell-list': return <DesignSellList {...props} />
+          case 'payment-collection': return <PaymentCollection {...props} />
+          case 'boq-list': return <BOQList {...props} />
+          case 'employee-list': return <EmployeeList {...props} />
+          case 'client-status': return <ClientViews view="client-status" {...props} />
+          default: break
+        }
+        if (PAGE_CONFIGS[key]) return <GenericCrud key={key} config={PAGE_CONFIGS[key]} {...props} />
+        return <ComingSoon title={page.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} {...props} />
+      }
     }
   }
 

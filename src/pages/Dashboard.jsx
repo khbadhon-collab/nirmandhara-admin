@@ -111,15 +111,15 @@ export default function Dashboard({ onNavigate }) {
             </PieChart>
             <div className="stat-boxes">
               <a className="stat-box bg-green" onClick={() => onNavigate('project-list')} style={{ cursor: 'pointer' }}>
-                <div><div className="stat-val">{stats.projects || 54}</div><div className="stat-lbl">Total Project</div></div>
+                <div><div className="stat-val">{stats.projects || 0}</div><div className="stat-lbl">Total Project</div></div>
                 <i className="fas fa-calendar-check stat-icon"></i>
               </a>
               <a className="stat-box bg-red" onClick={() => onNavigate('project-list')} style={{ cursor: 'pointer' }}>
-                <div><div className="stat-val">{stats.ongoing || 29}</div><div className="stat-lbl">Ongoing Project</div></div>
+                <div><div className="stat-val">{stats.ongoing || 0}</div><div className="stat-lbl">Ongoing Project</div></div>
                 <i className="fas fa-calendar-minus stat-icon"></i>
               </a>
               <a className="stat-box bg-navy" onClick={() => onNavigate('project-list')} style={{ cursor: 'pointer', gridColumn: '1 / span 2' }}>
-                <div><div className="stat-val">{stats.done || 25}</div><div className="stat-lbl">Done</div></div>
+                <div><div className="stat-val">{stats.done || 0}</div><div className="stat-lbl">Done</div></div>
                 <i className="fas fa-calendar-check stat-icon"></i>
               </a>
             </div>
