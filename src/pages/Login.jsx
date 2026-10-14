@@ -1,141 +1,102 @@
-import { useState, useEffect } from 'react'
-import { supabase } from './lib/supabase'
-import Login from './pages/Login'
-import ResetPassword from './pages/ResetPassword'
-import GenericCrud from './pages/GenericCrud'
-import ClientViews from './pages/clients/ClientViews'
-import { PAGE_CONFIGS, PAGE_ALIASES } from './pages/pageConfigs'
-import FinanceReport from './pages/FinanceReport'
-import Sidebar from './components/Sidebar'
-import Header from './components/Header'
-import ToastContainer from './components/Toast'
-import { useToast } from './hooks/useToast'
-import Dashboard from './pages/Dashboard'
-import ClientList from './pages/clients/ClientList'
-import ProjectList from './pages/projects/ProjectList'
-import BOQAdd from './pages/quotations/BOQAdd'
-import BOQList from './pages/quotations/BOQList'
-import PaymentCollection from './pages/payments/PaymentCollection'
-import DesignSellList from './pages/payments/DesignSellList'
-import EmployeeList from './pages/employees/EmployeeList'
-import ComingSoon from './pages/ComingSoon'
-import './index.css'
+import { useState } from 'react'
+import { supabase } from '../lib/supabase'
 
-export default function App() {
-  const [user, setUser] = useState(null)
-  const [authLoading, setAuthLoading] = useState(true)
-  const [isPasswordReset, setIsPasswordReset] = useState(false)
-  const [page, setPage] = useState('dashboard')
-  const [collapsed, setCollapsed] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const { toasts, toast } = useToast()
+export default function Login({ onLogin }) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [mode, setMode] = useState('login') // login | forgot
+  const [resetSent, setResetSent] = useState(false)
 
-  useEffect(() => {
-    // Detect password reset token in URL hash
-    const hash = window.location.hash
-    if (hash.includes('type=recovery')) {
-      setIsPasswordReset(true)
-      setAuthLoading(false)
-      return
-    }
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null)
-      setAuthLoading(false)
-    })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsPasswordReset(true)
-        return
-      }
-      setUser(session?.user ?? null)
-    })
-    return () => subscription.unsubscribe()
-  }, [])
-
-  async function logout() {
-    await supabase.auth.signOut()
-    setUser(null)
+  async function submit() {
+    setError(''); setLoading(true)
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    setLoading(false)
+    if (error) { setError('Wrong email or password'); return }
+    onLogin(data.session.user)
   }
 
-  function navigate(p) { setPage(p); setSearchQuery('') }
-
-  const props = { onNavigate: navigate, toast }
-
-  function renderPage() {
-    switch (page) {
-      case 'dashboard': return <Dashboard {...props} />
-      case 'client-list':
-      case 'client-add': return <ClientList {...props} />
-      case 'project-list':
-      case 'project-add': return <ProjectList {...props} />
-      case 'boq-add': return <BOQAdd {...props} />
-      case 'boq-list': return <BOQList {...props} />
-      case 'payment-collection': return <PaymentCollection {...props} />
-      case 'design-sell-list':
-      case 'design-sell-add': return <DesignSellList {...props} />
-      case 'employee-list': return <EmployeeList {...props} />
-      case 'today-call':
-      case 'overdue-call':
-      case 'upcoming-call':
-      case 'visit-date':
-      case 'client-status':
-      case 'client-category':
-      case 'area':
-      case 'sqft':
-      case 'reference':
-        return <ClientViews view={page} {...props} />
-      case 'report-profit':
-      case 'cashbook':
-        return <FinanceReport {...props} />
-      default: {
-        const key = PAGE_ALIASES[page] || page
-        // aliases may point back to core pages
-        switch (key) {
-          case 'project-list': return <ProjectList {...props} />
-          case 'design-sell-list': return <DesignSellList {...props} />
-          case 'payment-collection': return <PaymentCollection {...props} />
-          case 'boq-list': return <BOQList {...props} />
-          case 'employee-list': return <EmployeeList {...props} />
-          case 'client-status': return <ClientViews view="client-status" {...props} />
-          default: break
-        }
-        if (PAGE_CONFIGS[key]) return <GenericCrud key={key} config={PAGE_CONFIGS[key]} {...props} />
-        return <ComingSoon title={page.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} {...props} />
-      }
-    }
+  async function sendReset() {
+    if (!email) { setError('Enter your email address first'); return }
+    setError(''); setLoading(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://nirmandhara.netlify.app'
+    })
+    setLoading(false)
+    if (error) { setError(error.message || 'Failed to send reset email'); return }
+    setResetSent(true)
   }
-
-  if (authLoading) return (
-    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',color:'#1a5c3a',fontWeight:700}}>Nirman Dhara</div>
-  )
-  if (isPasswordReset) return <ResetPassword onDone={() => { setIsPasswordReset(false); window.location.hash = '' }} />
-  if (!user) return <Login onLogin={setUser} />
 
   return (
-    <div className="app-layout">
-      <Sidebar
-        currentPage={page}
-        onNavigate={navigate}
-        collapsed={collapsed}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-      />
-      <div className={`page-wrapper ${collapsed ? 'expanded' : ''}`}>
-        <Header
-          onToggleSidebar={() => setCollapsed(!collapsed)}
-          currentPage={page}
-          notifCount={3}
-          onLogout={logout}
-        />
-        <main className="main-content">
-          {renderPage()}
-        </main>
-        <footer className="page-footer">
-          &copy; {new Date().getFullYear()} <a href="#">nirmandhara</a> — Design Your Dream. All rights reserved.
-        </footer>
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#f0f4f8'}}>
+      <div style={{background:'#fff',padding:'40px 36px',borderRadius:12,boxShadow:'0 4px 24px rgba(0,0,0,0.08)',width:360}}>
+        <div style={{textAlign:'center',marginBottom:28}}>
+          <div style={{fontSize:24,fontWeight:800,color:'#1a5c3a'}}>Nirman Dhara</div>
+          <div style={{fontSize:13,color:'#888',marginTop:4}}>
+            {mode === 'login' ? 'Admin Panel' : 'Reset Password'}
+          </div>
+        </div>
+
+        {mode === 'login' && (
+          <>
+            <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)}
+              style={{width:'100%',padding:'11px 14px',border:'1px solid #ddd',borderRadius:8,marginBottom:12,fontSize:14,boxSizing:'border-box'}} />
+            <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&submit()}
+              style={{width:'100%',padding:'11px 14px',border:'1px solid #ddd',borderRadius:8,marginBottom:8,fontSize:14,boxSizing:'border-box'}} />
+            <div style={{textAlign:'right',marginBottom:16}}>
+              <span
+                onClick={() => { setMode('forgot'); setError(''); setResetSent(false) }}
+                style={{fontSize:12,color:'#1a5c3a',cursor:'pointer',textDecoration:'underline'}}
+              >
+                Forgot password?
+              </span>
+            </div>
+            {error && <div style={{color:'#c0392b',fontSize:13,marginBottom:12,textAlign:'center'}}>{error}</div>}
+            <button onClick={submit} disabled={loading}
+              style={{width:'100%',padding:'12px',background:'#1a5c3a',color:'#fff',border:'none',borderRadius:8,fontSize:15,fontWeight:700,cursor:'pointer',opacity:loading?0.7:1}}>
+              {loading ? 'Signing in...' : 'Sign In'}
+            </button>
+          </>
+        )}
+
+        {mode === 'forgot' && !resetSent && (
+          <>
+            <p style={{fontSize:13,color:'#555',marginBottom:16,textAlign:'center',lineHeight:1.5}}>
+              Enter your email and we will send you a reset link.
+            </p>
+            <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&sendReset()}
+              style={{width:'100%',padding:'11px 14px',border:'1px solid #ddd',borderRadius:8,marginBottom:16,fontSize:14,boxSizing:'border-box'}} />
+            {error && <div style={{color:'#c0392b',fontSize:13,marginBottom:12,textAlign:'center'}}>{error}</div>}
+            <button onClick={sendReset} disabled={loading}
+              style={{width:'100%',padding:'12px',background:'#1a5c3a',color:'#fff',border:'none',borderRadius:8,fontSize:15,fontWeight:700,cursor:'pointer',opacity:loading?0.7:1}}>
+              {loading ? 'Sending...' : 'Send Reset Link'}
+            </button>
+            <div style={{textAlign:'center',marginTop:14}}>
+              <span onClick={() => { setMode('login'); setError('') }}
+                style={{fontSize:12,color:'#888',cursor:'pointer',textDecoration:'underline'}}>
+                Back to login
+              </span>
+            </div>
+          </>
+        )}
+
+        {mode === 'forgot' && resetSent && (
+          <div style={{textAlign:'center'}}>
+            <div style={{fontSize:36,marginBottom:12}}>📧</div>
+            <div style={{fontSize:14,color:'#1a5c3a',fontWeight:600,marginBottom:8}}>Check your email</div>
+            <div style={{fontSize:13,color:'#555',marginBottom:20,lineHeight:1.6}}>
+              A reset link was sent to <strong>{email}</strong>. Click the link in the email to set a new password.
+            </div>
+            <span onClick={() => { setMode('login'); setError(''); setResetSent(false) }}
+              style={{fontSize:12,color:'#888',cursor:'pointer',textDecoration:'underline'}}>
+              Back to login
+            </span>
+          </div>
+        )}
       </div>
-      <ToastContainer toasts={toasts} />
     </div>
   )
 }
-
