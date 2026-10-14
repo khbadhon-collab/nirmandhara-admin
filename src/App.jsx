@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
 import Login from './pages/Login'
+import ResetPassword from './pages/ResetPassword'
 import GenericCrud from './pages/GenericCrud'
 import ClientViews from './pages/clients/ClientViews'
 import { PAGE_CONFIGS, PAGE_ALIASES } from './pages/pageConfigs'
@@ -23,17 +24,29 @@ import './index.css'
 export default function App() {
   const [user, setUser] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
+  const [isPasswordReset, setIsPasswordReset] = useState(false)
   const [page, setPage] = useState('dashboard')
   const [collapsed, setCollapsed] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const { toasts, toast } = useToast()
 
   useEffect(() => {
+    // Detect password reset token in URL hash
+    const hash = window.location.hash
+    if (hash.includes('type=recovery')) {
+      setIsPasswordReset(true)
+      setAuthLoading(false)
+      return
+    }
     supabase.auth.getSession().then(({ data }) => {
       setUser(data.session?.user ?? null)
       setAuthLoading(false)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordReset(true)
+        return
+      }
       setUser(session?.user ?? null)
     })
     return () => subscription.unsubscribe()
@@ -76,7 +89,6 @@ export default function App() {
         return <FinanceReport {...props} />
       default: {
         const key = PAGE_ALIASES[page] || page
-        // aliases may point back to core pages
         switch (key) {
           case 'project-list': return <ProjectList {...props} />
           case 'design-sell-list': return <DesignSellList {...props} />
@@ -95,6 +107,7 @@ export default function App() {
   if (authLoading) return (
     <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',color:'#1a5c3a',fontWeight:700}}>Nirman Dhara</div>
   )
+  if (isPasswordReset) return <ResetPassword onDone={() => { setIsPasswordReset(false); window.location.hash = '' }} />
   if (!user) return <Login onLogin={setUser} />
 
   return (
